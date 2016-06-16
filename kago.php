@@ -1,3 +1,3 @@
 <?php
 
-print "Kago version: " . kago_version();
+print "Kago version: " . kago_version() . "\n";

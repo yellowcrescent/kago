@@ -19,15 +19,32 @@
 
 #include "php.h"
 #include "php_version.h"
-#include "kago.h"
-
-#include "TSRM.h"
 #include "SAPI.h"
 #include "php_ini.h"
+
+#ifdef ZTS
+    #include "TSRM.h"
+#endif
 
 #include "zend.h"
 #include "zend_extensions.h"
 #include "zend_closures.h"
+
+#include "kago.h"
+
+
+int kago_zend_init = 0;
+
+ZEND_DECLARE_MODULE_GLOBALS(kago)
+
+/**
+ * Function Exports table
+ */
+
+zend_function_entry kago_functions[] = {
+    PHP_FE(kago_version, NULL)
+    { NULL, NULL, NULL }
+};
 
 
 /**
@@ -37,7 +54,7 @@
 zend_module_entry kago_module_entry = {
     STANDARD_MODULE_HEADER,
     "kago",
-    NULL, /* Function entries */
+    kago_functions, /* Function entries */
     PHP_MINIT(kago), /* Module init */
     PHP_MSHUTDOWN(kago), /* Module shutdown */
     NULL, /* Request init */
@@ -54,19 +71,24 @@ zend_module_entry kago_module_entry = {
 #endif
 
 /**
- * php.ini config
+ * php.ini config & globals init
  */
 PHP_INI_BEGIN()
-    PHP_INI_ENTRY("kago.enabled", "1", PHP_INI_SYSTEM, NULL)
-    PHP_INI_ENTRY("kago.log_path", "/var/log/kago.log", PHP_INI_SYSTEM, NULL)
-    //STD_PHP_INI_BOOLEAN("kago.enabled", "0", PHP_INI_SYSTEM, OnUpdateBool, kago_enabled, zend_kago_globals, kago_globals)
+    STD_PHP_INI_BOOLEAN("kago.enabled", "1", PHP_INI_ALL, OnUpdateBool, enabled, zend_kago_globals, kago_globals)
+    STD_PHP_INI_BOOLEAN("kago.log_path", "/var/log/kago.log", PHP_INI_ALL, OnUpdateString, log_path, zend_kago_globals, kago_globals)
 PHP_INI_END()
+
+static void php_kago_init_globals(zend_kago_globals* kg TSRMLS_DC) {
+    kg->enabled = 1;
+    kg->log_path = strdup("/var/log/kago.log");
+}
 
 /**
  * Module init function
  */
 
 PHP_MINIT_FUNCTION(kago) {
+    ZEND_INIT_MODULE_GLOBALS(kago, php_kago_init_globals, NULL);
     REGISTER_INI_ENTRIES();
     return SUCCESS;
 }
@@ -91,6 +113,7 @@ PHP_MINFO_FUNCTION(kago) {
     php_info_print_table_header(2, "Kago enabled (kago.enabled)", (INI_BOOL("kago.enabled") ? "enabled" : "disabled"));
     php_info_print_table_header(2, "Log path (kago.log_path)", INI_STR("kago.log_path"));
     php_info_print_table_end();
+    DISPLAY_INI_ENTRIES();
 }
 
 /**
@@ -101,15 +124,21 @@ PHP_FUNCTION(kago_version) {
     RETURN_STRING(KAGO_VERSION, 1);
 }
 
-
 /**
- * Function Exports table
+ * Zend init & shutdown handlers
  */
 
-zend_function_entry kago_functions[] = {
-    PHP_FE(kago_version, NULL)
-    { NULL, NULL, NULL }
-};
+ZEND_DLEXPORT int kago_zend_startup(zend_extension *extension) {
+
+    kago_zend_init = 1;
+
+    // return copy of our "regular" module object
+    // which allows us to be a hybrid PHP module + Zend extension
+    return zend_startup_module(&kago_module_entry);
+}
+
+ZEND_DLEXPORT int kago_zend_shutdown(zend_extension *extension) {
+}
 
 
 /**
@@ -126,9 +155,11 @@ ZEND_DLEXPORT zend_extension zend_extension_entry = {
     KAGO_VERSION, /* version */
     KAGO_AUTHOR, /* author */
     KAGO_URL, /* url */
-    KAGO_COPYRIGHT, /* copyright */
-    NULL, /* startup_func_t startup */
-    NULL, /* shutdown_func_t shutdown */
+    KAGO_COPYRIGHT_SHORT, /* copyright */
+
+    kago_zend_startup, /* startup_func_t startup */
+    kago_zend_shutdown, /* shutdown_func_t shutdown */
+
     NULL, /* activate_func_t activate */
     NULL, /* deactivate_func_t deactivate */
     NULL, /* message_handler_func_t message_handler */
