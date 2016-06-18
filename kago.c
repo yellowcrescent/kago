@@ -21,6 +21,7 @@
 #include "php_version.h"
 #include "SAPI.h"
 #include "php_ini.h"
+#include "ext/standard/info.h"
 
 #ifdef ZTS
     #include "TSRM.h"
@@ -29,11 +30,15 @@
 #include "zend.h"
 #include "zend_extensions.h"
 #include "zend_closures.h"
+#include "zend_hash.h"
 
 #include "kago.h"
 
+int func_overrides_len = 0;
+kago_overfuncs **func_overrides = NULL;
 
 int kago_zend_init = 0;
+int kago_active = 0;
 
 ZEND_DECLARE_MODULE_GLOBALS(kago)
 
@@ -43,7 +48,8 @@ ZEND_DECLARE_MODULE_GLOBALS(kago)
 
 zend_function_entry kago_functions[] = {
     PHP_FE(kago_version, NULL)
-    { NULL, NULL, NULL }
+    PHP_FE(kago_show_func, NULL)
+    PHP_FE_END
 };
 
 
@@ -57,7 +63,7 @@ zend_module_entry kago_module_entry = {
     kago_functions, /* Function entries */
     PHP_MINIT(kago), /* Module init */
     PHP_MSHUTDOWN(kago), /* Module shutdown */
-    NULL, /* Request init */
+    PHP_RINIT(kago), /* Request init */
     NULL, /* Request shutdown */
     PHP_MINFO(kago), /* Module information */
     "0.1.0", /* Replace with version number for your extension */
@@ -88,8 +94,15 @@ static void php_kago_init_globals(zend_kago_globals* kg TSRMLS_DC) {
  */
 
 PHP_MINIT_FUNCTION(kago) {
+    // register globals & ini settings
     ZEND_INIT_MODULE_GLOBALS(kago, php_kago_init_globals, NULL);
     REGISTER_INI_ENTRIES();
+
+    // ensure we're loaded via 'zend_extension=' and not 'extension='
+    if(!kago_zend_init) {
+        zend_error(E_WARNING, "Kago must be loaded as a Zend Extension! Use 'zend_extension=kago.so', NOT 'extension=kago.so'");
+    }
+
     return SUCCESS;
 }
 
@@ -108,12 +121,27 @@ PHP_MSHUTDOWN_FUNCTION(kago) {
  */
 
 PHP_MINFO_FUNCTION(kago) {
+
+    // first table
     php_info_print_table_start();
-    php_info_print_table_header(2, "Version", KAGO_VERSION);
-    php_info_print_table_header(2, "Kago enabled (kago.enabled)", (INI_BOOL("kago.enabled") ? "enabled" : "disabled"));
-    php_info_print_table_header(2, "Log path (kago.log_path)", INI_STR("kago.log_path"));
+    php_info_print_table_row(2, "Version", KAGO_VERSION);
+    php_info_print_table_row(2, "Kago support", (KAGO_G(enabled) ? "Enabled" : "Disabled"));
+    php_info_print_table_row(2, "Protection", (kago_active ? "Active" : "Inactive"));
+
+    if(!kago_zend_init) {
+        php_info_print_table_header(1, "Kago must be loaded as a Zend Extension! Use 'zend_extension=kago.so', NOT 'extension=kago.so'");
+    }
+
     php_info_print_table_end();
     DISPLAY_INI_ENTRIES();
+
+}
+
+PHP_RINIT_FUNCTION(kago) {
+
+    // setup function overrides
+    replace_function("fopen", zif_kago_zend_precall_hook);
+
 }
 
 /**
@@ -122,6 +150,144 @@ PHP_MINFO_FUNCTION(kago) {
 
 PHP_FUNCTION(kago_version) {
     RETURN_STRING(KAGO_VERSION, 1);
+}
+
+PHP_FUNCTION(kago_show_func) {
+    char *fname, *fname2;
+    int fname_len, fname2_len;
+    char *param_fname;
+    zend_function *fe;
+
+    // parse params
+    if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &fname, &fname_len) == FAILURE) {
+        RETURN_FALSE;
+    }
+
+    param_fname = estrdup(fname);
+
+    #pragma GCC diagnostic ignored "-Wformat"
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+
+    // find existing function in function_table
+    if(zend_hash_find(EG(function_table), param_fname, fname_len+1, (void*)&fe) == FAILURE) {
+        efree(param_fname);
+        php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s() not found", fname);
+        RETURN_FALSE;
+    }
+
+    zend_printf("** got function %s\n", fname);
+    zend_printf("fe->type: %hu\n", fe->type);
+    zend_printf("fe->common.function_name: %s\n", fe->common.function_name);
+    zend_printf("fe->common.scope: %08x\n", fe->common.scope);
+    zend_printf("fe->common.fn_flags: %08x\n", fe->common.fn_flags);
+    zend_printf("fe->common.prototype: %08x\n", fe->common.prototype);
+    zend_printf("fe->common.num_args: %d\n", fe->common.num_args);
+    zend_printf("fe->common.required_num_args: %d\n", fe->common.required_num_args);
+    zend_printf("fe->common.arg_info @@ 0x%08x\n", fe->common.arg_info);
+    zend_printf("fe->op_array: %08x\n", fe->op_array);
+
+    if(fe->type == ZEND_INTERNAL_FUNCTION) {
+        zend_internal_function *zif = (void*)fe;
+        zend_printf("zif->handler: %08x\n", zif->handler);
+    }
+
+    zend_printf("zif_kago_hook_func @@ 0x%08x\n", zif_kago_zend_precall_hook);
+
+    efree(param_fname);
+
+    RETURN_TRUE;
+}
+
+PHP_FUNCTION(kago_zend_precall_hook) {
+    zval **params;
+    int params_len;
+    char *tfunc;
+    void (*fptr)(INTERNAL_FUNCTION_PARAMETERS);
+
+    zend_printf("*** inside kago_zend_precall_hook()\n");
+
+    char *tfuncname = estrdup(KAGO_CALLED_FUNCTION);
+
+    if((fptr = kago_fovr_get(tfuncname)) == NULL) {
+        php_error_docref(NULL TSRMLS_CC, E_WARNING, "no pointer for %s() found!", tfuncname);
+        efree(tfuncname);
+        RETURN_FALSE;
+    }
+
+    // scoop up them params
+    zend_printf("*** callee sent %d params\n", ZEND_NUM_ARGS());
+
+    zend_printf("*** calling original function: %s() @@ 0x%08x\n", tfuncname, fptr);
+
+    fptr(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+
+    zend_printf("*** leaving function %s()\n", tfuncname);
+
+    efree(tfuncname);
+    return;
+}
+
+int replace_function(char *fname, void *fptr TSRMLS_DC) {
+    zend_internal_function *orig_func = NULL;
+
+    zend_printf("hooking function '%s'\n", fname);
+
+    // find existing function in function_table
+    if(zend_hash_find(EG(function_table), fname, strlen(fname)+1, (void*)&orig_func) == FAILURE) {
+        php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s() not found", fname);
+        //efree(param_fname);
+        return FAILURE;
+    }
+
+    // might need to use zend_hash_str_find_ptr() with PHP7
+    // orig_func = zend_hash_str_find_ptr(EG(function_table), param_fname, strlen(fname) - 1);
+
+    if(orig_func->type != ZEND_INTERNAL_FUNCTION) {
+        php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s() is not a supported candidate for replacement", fname);
+        return FAILURE;
+    }
+
+    // point handler to new function, return orig_func, and add old handler to overrides table
+    kago_fovr_add(fname, orig_func->handler);
+    orig_func->handler = fptr;
+
+    return SUCCESS;
+}
+
+int kago_fovr_add(char *funcname, void *fptr) {
+    func_overrides_len++;
+
+    if((func_overrides = erealloc(func_overrides, sizeof(kago_overfuncs*) * func_overrides_len)) == NULL) {
+        php_error_docref(NULL TSRMLS_CC, E_ERROR, "erealloc() failed to reallocate memory");
+        return FAILURE;
+    }
+
+    if((func_overrides[func_overrides_len - 1] = emalloc(sizeof(kago_overfuncs))) == NULL) {
+        php_error_docref(NULL TSRMLS_CC, E_ERROR, "malloc() failed to allocate memory for new entry");
+        return FAILURE;
+    }
+
+    func_overrides[func_overrides_len - 1]->funcname = estrdup(funcname);
+    func_overrides[func_overrides_len - 1]->fptr = fptr;
+
+    return SUCCESS;
+}
+
+void kago_fovr_free() {
+    for(int i = 0; i < func_overrides_len; i++) {
+        if(func_overrides[i]->funcname) efree(func_overrides[i]->funcname);
+        efree(func_overrides[i]);
+    }
+    efree(func_overrides);
+}
+
+void* kago_fovr_get(char *funcname) {
+    for(int i = 0; i < func_overrides_len; i++) {
+        if(!strcmp(funcname, func_overrides[i]->funcname)) {
+            return func_overrides[i]->fptr;
+        }
+    }
+    return NULL;
 }
 
 /**
@@ -138,15 +304,33 @@ ZEND_DLEXPORT int kago_zend_startup(zend_extension *extension) {
 }
 
 ZEND_DLEXPORT int kago_zend_shutdown(zend_extension *extension) {
+    if(func_overrides) {
+        kago_fovr_free();
+    }
 }
 
+ZEND_DLEXPORT void kago_zend_activate() {
+    /* nothing here */
+}
+
+ZEND_DLEXPORT void kago_zend_deactivate() {
+    /* nothing here */
+}
+
+ZEND_DLEXPORT void kago_fcall_begin_handler(zend_op_array *op_array) {
+    /* nothing here */
+}
+
+ZEND_DLEXPORT void kago_fcall_end_handler(zend_op_array *op_array) {
+    /* nothing here */
+}
 
 /**
  * Zend extension init & properties
  */
 
 #ifndef ZEND_EXT_API
-#define ZEND_EXT_API
+#define ZEND_EXT_API ZEND_DLEXPORT
 #endif
 ZEND_EXTENSION();
 
@@ -160,8 +344,8 @@ ZEND_DLEXPORT zend_extension zend_extension_entry = {
     kago_zend_startup, /* startup_func_t startup */
     kago_zend_shutdown, /* shutdown_func_t shutdown */
 
-    NULL, /* activate_func_t activate */
-    NULL, /* deactivate_func_t deactivate */
+    kago_zend_activate, /* activate_func_t activate */
+    kago_zend_deactivate, /* deactivate_func_t deactivate */
     NULL, /* message_handler_func_t message_handler */
     NULL, /* op_array_handler_func_t op_array_handler */
     NULL, /* statement_handler_func_t statement_handler */
