@@ -25,7 +25,9 @@
 #define KAGO_COPYRIGHT "Copyright (c) 2016 J. Hipps/Neo-Retro Group, Inc."
 #define KAGO_COPYRIGHT_SHORT "Copyright (c) 2016"
 
-// Macros //
+// Macros & Defines //
+
+#define KAGO_MAXPATH	2048
 
 #if PHP_VERSION_ID >= 70000
 	#define KAGO_CALLED_FUNCTION execute_data->func->common.function_name->val
@@ -72,6 +74,7 @@ PHP_RINIT_FUNCTION(kago);
 PHP_FUNCTION(kago_version);
 PHP_FUNCTION(kago_show_func);
 PHP_FUNCTION(kago_zend_precall_hook);
+PHP_FUNCTION(kago_fopen_precall_hook);
 
 // Zend functions //
 

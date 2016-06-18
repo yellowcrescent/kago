@@ -140,7 +140,8 @@ PHP_MINFO_FUNCTION(kago) {
 PHP_RINIT_FUNCTION(kago) {
 
     // setup function overrides
-    replace_function("fopen", zif_kago_zend_precall_hook);
+    replace_function("fopen", zif_kago_fopen_precall_hook);
+    replace_function("file_put_contents", zif_kago_fopen_precall_hook);
 
 }
 
@@ -198,6 +199,63 @@ PHP_FUNCTION(kago_show_func) {
     RETURN_TRUE;
 }
 
+PHP_FUNCTION(kago_fopen_precall_hook) {
+    char *tfunc;
+    void (*fptr)(INTERNAL_FUNCTION_PARAMETERS);
+    char *realpath;
+
+    char *filename, *mode;
+    int filename_len, mode_len;
+    zend_bool use_include_path = 0;
+    zval *zcontext = NULL;
+    php_stream *stream;
+    php_stream_context *context = NULL;
+    zval *data;
+    long flags = 0;
+
+    zend_printf("*** inside kago_fopen_precall_hook()\n");
+
+    char *tfuncname = estrdup(KAGO_CALLED_FUNCTION);
+
+    if((fptr = kago_fovr_get(tfuncname)) == NULL) {
+        php_error_docref(NULL TSRMLS_CC, E_WARNING, "no pointer for %s() found!", tfuncname);
+        efree(tfuncname);
+        RETURN_FALSE;
+    }
+
+    // scoop up them params
+    if(!strcmp("fopen", tfuncname)) {
+        if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ps|br", &filename, &filename_len, &mode, &mode_len, &use_include_path, &zcontext) != FAILURE) {
+            if((realpath = emalloc(KAGO_MAXPATH)) == NULL) {
+                zend_printf("failed to allocate memory\n");
+                return;
+            }
+            VCWD_REALPATH(filename, realpath);
+            zend_printf("filename=[%s] realpath=[%s] mode=[%s] use_include_path=[%s]\n", filename, (realpath ? realpath : "??"), mode, (use_include_path ? "yes" : "no"));
+            efree(realpath);
+        }
+    } else if(!strcmp("file_put_contents", tfuncname)) {
+        if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "pz/|lr!", &filename, &filename_len, &data, &flags, &zcontext) != FAILURE) {
+            if((realpath = emalloc(KAGO_MAXPATH)) == NULL) {
+                zend_printf("failed to allocate memory\n");
+                return;
+            }
+            VCWD_REALPATH(filename, realpath);
+            zend_printf("filename=[%s] realpath=[%s] data_length=[%d] flags=[0x%08x]\n", filename, (realpath ? realpath : "??"), Z_STRLEN_P(data), flags);
+            efree(realpath);
+        }
+    }
+
+    zend_printf("*** calling original function: %s() @@ 0x%08x\n", tfuncname, fptr);
+
+    fptr(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+
+    zend_printf("*** leaving function %s()\n", tfuncname);
+
+    efree(tfuncname);
+    return;
+}
+
 PHP_FUNCTION(kago_zend_precall_hook) {
     zval **params;
     int params_len;
@@ -214,9 +272,7 @@ PHP_FUNCTION(kago_zend_precall_hook) {
         RETURN_FALSE;
     }
 
-    // scoop up them params
     zend_printf("*** callee sent %d params\n", ZEND_NUM_ARGS());
-
     zend_printf("*** calling original function: %s() @@ 0x%08x\n", tfuncname, fptr);
 
     fptr(INTERNAL_FUNCTION_PARAM_PASSTHRU);
@@ -230,7 +286,7 @@ PHP_FUNCTION(kago_zend_precall_hook) {
 int replace_function(char *fname, void *fptr TSRMLS_DC) {
     zend_internal_function *orig_func = NULL;
 
-    zend_printf("hooking function '%s'\n", fname);
+    //zend_printf("hooking function '%s'\n", fname);
 
     // find existing function in function_table
     if(zend_hash_find(EG(function_table), fname, strlen(fname)+1, (void*)&orig_func) == FAILURE) {

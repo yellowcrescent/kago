@@ -1,16 +1,16 @@
 <?php
 
-function test_func() {
-	print "This is a test func!\n";
-}
+$dummy_file = "~dummy_file";
 
-print "Kago version: " . kago_version() . "\n";
-kago_show_func("test_func");
-kago_show_func("fopen");
-kago_show_func("kago_version");
+printf("Kago version: %s\n", kago_version());
 
-$f = fopen("kago.php", "r");
+printf("Writing data to test file: %s\n", $dummy_file);
+
+file_put_contents($dummy_file, "This is test data");
+
+$f = fopen($dummy_file, "r");
 var_dump($f);
-$fout = fread($f, 64);
-print "got data from file:\n$fout\n\n";
 if($f) fclose($f);
+
+printf("Removing dummy file\n");
+unlink($dummy_file);
