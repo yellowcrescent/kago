@@ -166,9 +166,6 @@ PHP_FUNCTION(kago_show_func) {
 
     param_fname = estrdup(fname);
 
-    #pragma GCC diagnostic ignored "-Wformat"
-    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
-
     // find existing function in function_table
     if(zend_hash_find(EG(function_table), param_fname, fname_len+1, (void*)&fe) == FAILURE) {
         efree(param_fname);

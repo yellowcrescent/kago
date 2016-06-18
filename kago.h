@@ -90,4 +90,9 @@ ZEND_DLEXPORT void kago_fcall_end_handler(zend_op_array *op_array);
 extern zend_module_entry kago_module_entry;
 #define phpext_kago_ptr &kago_module_entry
 
+// Pragma //
+
+#pragma GCC diagnostic ignored "-Wformat"
+#pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+
 #endif
