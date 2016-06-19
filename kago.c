@@ -64,7 +64,7 @@ zend_module_entry kago_module_entry = {
     PHP_MINIT(kago), /* Module init */
     PHP_MSHUTDOWN(kago), /* Module shutdown */
     PHP_RINIT(kago), /* Request init */
-    NULL, /* Request shutdown */
+    PHP_RSHUTDOWN(kago), /* Request shutdown */
     PHP_MINFO(kago), /* Module information */
     KAGO_VERSION, /* Replace with version number for your extension */
     NO_MODULE_GLOBALS,
@@ -142,6 +142,15 @@ PHP_RINIT_FUNCTION(kago) {
     // setup function overrides
     replace_function("fopen", zif_kago_fopen_precall_hook);
     replace_function("file_put_contents", zif_kago_fopen_precall_hook);
+
+}
+
+PHP_RSHUTDOWN_FUNCTION(kago) {
+
+    // revert functions and free function overrides table
+    if(func_overrides) {
+        kago_fovr_free();
+    }
 
 }
 
@@ -307,6 +316,22 @@ int replace_function(char *fname, void *fptr TSRMLS_DC) {
     return SUCCESS;
 }
 
+int restore_function(char *fname, void *fptr TSRMLS_DC) {
+    zend_internal_function *orig_func = NULL;
+
+    // find in function_table
+    if(zend_hash_find(EG(function_table), fname, strlen(fname)+1, (void*)&orig_func) == FAILURE) {
+        return FAILURE;
+    }
+
+    // might need to use zend_hash_str_find_ptr() with PHP7
+    // orig_func = zend_hash_str_find_ptr(EG(function_table), param_fname, strlen(fname) - 1);
+
+    orig_func->handler = fptr;
+
+    return SUCCESS;
+}
+
 int kago_fovr_add(char *funcname, void *fptr) {
     func_overrides_len++;
 
@@ -357,9 +382,7 @@ ZEND_DLEXPORT int kago_zend_startup(zend_extension *extension) {
 }
 
 ZEND_DLEXPORT int kago_zend_shutdown(zend_extension *extension) {
-    if(func_overrides) {
-        kago_fovr_free();
-    }
+    /* nothing here */
 }
 
 ZEND_DLEXPORT void kago_zend_activate() {
