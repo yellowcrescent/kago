@@ -66,7 +66,7 @@ zend_module_entry kago_module_entry = {
     PHP_RINIT(kago), /* Request init */
     NULL, /* Request shutdown */
     PHP_MINFO(kago), /* Module information */
-    "0.1.0", /* Replace with version number for your extension */
+    KAGO_VERSION, /* Replace with version number for your extension */
     NO_MODULE_GLOBALS,
     NULL,
     STANDARD_MODULE_PROPERTIES_EX
