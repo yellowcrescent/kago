@@ -36,7 +36,7 @@
 // Module infos //
 
 #define KAGO_NAME "Kago"
-#define KAGO_VERSION "0.1.2-wip"
+#define KAGO_VERSION "0.1.3-wip"
 #define KAGO_AUTHOR "Jacob Hipps"
 #define KAGO_URL "https://ycnrg.org/"
 #define KAGO_COPYRIGHT "Copyright (c) 2016 J. Hipps/Neo-Retro Group, Inc."
@@ -80,7 +80,7 @@ int restore_function(char *fname, void *fptr TSRMLS_DC);
 int kago_fovr_add(char *funcname, void *fptr);
 void kago_fovr_free();
 void* kago_fovr_get(char *funcname);
-void kago_parse_sglobals(char *vname, char *vkey TSRMLS_DC);
+int kago_parse_sglobals(char *vname, char *vkey, void **dval TSRMLS_DC);
 
 // Module framework function declarations //
 

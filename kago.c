@@ -73,7 +73,7 @@ PHP_INI_END()
 static void php_kago_init_globals(zend_kago_globals* kg TSRMLS_DC) {
     kg->enabled = 1;
     kg->restrict_php = 1;
-    kg->log_path = strdup("/var/log/kago.log");
+    kg->log_path = estrdup("/var/log/kago.log");
 }
 
 /**
@@ -125,18 +125,20 @@ PHP_MINFO_FUNCTION(kago) {
 }
 
 PHP_RINIT_FUNCTION(kago) {
-
-    kago_parse_sglobals("_SERVER", "SCRIPT_NAME" TSRMLS_CC);
+    char *zlogpath = NULL;
 
     // open the audit log
-    log_init(KAGO_G(log_path) TSRMLS_CC);
+    zlogpath = strdup(KAGO_G(log_path));
+    log_init(zlogpath TSRMLS_CC);
+    if(zlogpath) free(zlogpath);
+
+    //kago_parse_sglobals("_SERVER", "SCRIPT_NAME" TSRMLS_CC);
 
     // setup function overrides
     replace_function("fopen", zif_kago_fopen_precall_hook);
     replace_function("file_put_contents", zif_kago_fopen_precall_hook);
 
     log_write("session_begin");
-
 }
 
 PHP_RSHUTDOWN_FUNCTION(kago) {
@@ -148,7 +150,6 @@ PHP_RSHUTDOWN_FUNCTION(kago) {
 
     log_write("session_end");
     log_close();
-
 }
 
 /**
@@ -215,8 +216,12 @@ PHP_FUNCTION(kago_fopen_precall_hook) {
     php_stream_context *context = NULL;
     zval *data;
     long flags = 0;
+    char *script_name = NULL;
 
     //zend_printf("*** inside kago_fopen_precall_hook()\n");
+
+    // get script name
+    kago_parse_sglobals("_SERVER", "SCRIPT_NAME", &script_name TSRMLS_CC);
 
     char *tfuncname = estrdup(KAGO_CALLED_FUNCTION);
 
@@ -231,22 +236,24 @@ PHP_FUNCTION(kago_fopen_precall_hook) {
         if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ps|br", &filename, &filename_len, &mode, &mode_len, &use_include_path, &zcontext) != FAILURE) {
             if((realpath = emalloc(KAGO_MAXPATH)) == NULL) {
                 zend_printf("failed to allocate memory\n");
+                if(script_name) efree(script_name);
                 return;
             }
             realpath[0] = 0x00;
             VCWD_REALPATH(filename, realpath);
-            log_write("function=[fopen] filename=[%s] realpath=[%s] mode=[%s] use_include_path=[%s]", filename, (realpath ? realpath : "??"), mode, (use_include_path ? "yes" : "no"));
+            log_write("sapi=[%s] script=[%s] function=[fopen] filename=[%s] realpath=[%s] mode=[%s] use_include_path=[%s]", sapi_module.name, script_name, filename, (realpath ? realpath : "??"), mode, (use_include_path ? "yes" : "no"));
             efree(realpath);
         }
     } else if(!strcmp("file_put_contents", tfuncname)) {
         if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "pz/|lr!", &filename, &filename_len, &data, &flags, &zcontext) != FAILURE) {
             if((realpath = emalloc(KAGO_MAXPATH)) == NULL) {
                 zend_printf("failed to allocate memory\n");
+                if(script_name) efree(script_name);
                 return;
             }
             realpath[0] = 0x00;
             VCWD_REALPATH(filename, realpath);
-            log_write("function=[file_put_contents] filename=[%s] realpath=[%s] data_length=[%d] flags=[0x%08x]", filename, (realpath ? realpath : "??"), Z_STRLEN_P(data), flags);
+            log_write("sapi=[%s] script=[%s] function=[file_put_contents] filename=[%s] realpath=[%s] data_length=[%d] flags=[0x%08x]", sapi_module.name, script_name, filename, (realpath ? realpath : "??"), Z_STRLEN_P(data), flags);
             efree(realpath);
         }
     }
@@ -257,6 +264,7 @@ PHP_FUNCTION(kago_fopen_precall_hook) {
 
     //zend_printf("*** leaving function %s()\n", tfuncname);
 
+    if(script_name) efree(script_name);
     efree(tfuncname);
     return;
 }
@@ -368,31 +376,34 @@ void* kago_fovr_get(char *funcname) {
 }
 
 // TODO: add PHP7 support (see xdebug_superglobals.c for an example)
-void kago_parse_sglobals(char *vname, char *vkey TSRMLS_DC) {
+int kago_parse_sglobals(char *vname, char *vkey, void **dval TSRMLS_DC) {
     zval **zsg;
     zval **zvdest;
     zval *type;
     HashTable *ht = NULL;
+    char *vname_dup;
 
     // fetch $_SERVER superglobal
-    if(zend_hash_find(&EG(symbol_table), vname, strlen(vname) - 1, (void**)&zsg) == SUCCESS) {
-        if(Z_TYPE_PP(zsg) == IS_ARRAY) {
-            ht = Z_ARRVAL_PP(zsg);
-        }
-    } else {
+    if(zend_hash_find(&EG(symbol_table), vname, strlen(vname) + 1, (void**)&zsg) == FAILURE) {
         zend_printf("symbol_table hash lookup failed - failed to get value of %s[%s]\n", vname, vkey);
-        return;
+        return FAILURE;
+    }
+
+    if(Z_TYPE_PP(zsg) == IS_ARRAY) {
+        ht = Z_ARRVAL_PP(zsg);
     }
 
     if(ht) {
-        if(zend_hash_find(ht, vkey, strlen(vkey) - 1, (void**)&zvdest) == SUCCESS) {
-            zend_printf("** Got SG value for %s[%s] = %s\n", vname, vkey, Z_STRVAL_PP(zvdest));
-        } else {
+        if(zend_hash_find(ht, vkey, strlen(vkey) + 1, (void**)&zvdest) == FAILURE) {
             zend_printf("hashtable lookup failed -- failed to get value of %s[%s]\n", vname, vkey);
-            return;
+            return FAILURE;
         }
+        //zend_printf("** Got SG value for %s[%s] = %s\n", vname, vkey, Z_STRVAL_PP(zvdest));
     }
 
+    (*dval) = estrdup(Z_STRVAL_PP(zvdest));
+
+    return SUCCESS;
 }
 
 /**

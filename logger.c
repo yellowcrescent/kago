@@ -24,9 +24,14 @@ int klogvalid = 0;
 int log_init(logfile TSRMLS_DC) {
 	FILE* lhand;
 
-	if((lhand = fopen(logfile,"a")) == NULL) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to open audit log: %s", logfile);
-		klogvalid = 0;
+	if(logfile) {
+		if((lhand = fopen(logfile,"a")) == NULL) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to open audit log: %s", logfile);
+			klogvalid = 0;
+			return 1;
+		}
+	} else {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "No valid logfile defined. Audit logging disabled");
 		return 1;
 	}
 
