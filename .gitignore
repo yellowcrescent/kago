@@ -25,3 +25,4 @@ run-tests.php
 *.o
 *.lo
 *.la
+*.log

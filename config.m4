@@ -8,7 +8,7 @@ PHP_ARG_ENABLE(debug, whether to enable debugging symbols,
 
 dnl check if we should enable Kago
 if test "$PHP_KAGO" != "no"; then
-    PHP_NEW_EXTENSION(kago, kago.c, $ext_shared)
+    PHP_NEW_EXTENSION(kago, kago.c logger.c, $ext_shared)
 fi
 
 dnl check if we should enable debugging

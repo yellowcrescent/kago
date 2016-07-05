@@ -14,3 +14,5 @@ if($f) fclose($f);
 
 printf("Removing dummy file\n");
 unlink($dummy_file);
+
+//print_r($_SERVER);

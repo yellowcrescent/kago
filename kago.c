@@ -17,21 +17,6 @@
     #include "config.h"
 #endif
 
-#include "php.h"
-#include "php_version.h"
-#include "SAPI.h"
-#include "php_ini.h"
-#include "ext/standard/info.h"
-
-#ifdef ZTS
-    #include "TSRM.h"
-#endif
-
-#include "zend.h"
-#include "zend_extensions.h"
-#include "zend_closures.h"
-#include "zend_hash.h"
-
 #include "kago.h"
 
 int func_overrides_len = 0;
@@ -80,12 +65,14 @@ zend_module_entry kago_module_entry = {
  * php.ini config & globals init
  */
 PHP_INI_BEGIN()
-    STD_PHP_INI_BOOLEAN("kago.enabled", "1", PHP_INI_ALL, OnUpdateBool, enabled, zend_kago_globals, kago_globals)
-    STD_PHP_INI_BOOLEAN("kago.log_path", "/var/log/kago.log", PHP_INI_ALL, OnUpdateString, log_path, zend_kago_globals, kago_globals)
+    STD_PHP_INI_BOOLEAN("kago.enabled", "1", PHP_INI_SYSTEM, OnUpdateBool, enabled, zend_kago_globals, kago_globals)
+    STD_PHP_INI_BOOLEAN("kago.restrict_php", "1", PHP_INI_SYSTEM, OnUpdateString, restrict_php, zend_kago_globals, kago_globals)
+    STD_PHP_INI_ENTRY("kago.log_path", "/var/log/kago.log", PHP_INI_SYSTEM, OnUpdateString, log_path, zend_kago_globals, kago_globals)
 PHP_INI_END()
 
 static void php_kago_init_globals(zend_kago_globals* kg TSRMLS_DC) {
     kg->enabled = 1;
+    kg->restrict_php = 1;
     kg->log_path = strdup("/var/log/kago.log");
 }
 
@@ -139,9 +126,16 @@ PHP_MINFO_FUNCTION(kago) {
 
 PHP_RINIT_FUNCTION(kago) {
 
+    kago_parse_sglobals("_SERVER", "SCRIPT_NAME" TSRMLS_CC);
+
+    // open the audit log
+    log_init(KAGO_G(log_path) TSRMLS_CC);
+
     // setup function overrides
     replace_function("fopen", zif_kago_fopen_precall_hook);
     replace_function("file_put_contents", zif_kago_fopen_precall_hook);
+
+    log_write("session_begin");
 
 }
 
@@ -151,6 +145,9 @@ PHP_RSHUTDOWN_FUNCTION(kago) {
     if(func_overrides) {
         kago_fovr_free();
     }
+
+    log_write("session_end");
+    log_close();
 
 }
 
@@ -219,7 +216,7 @@ PHP_FUNCTION(kago_fopen_precall_hook) {
     zval *data;
     long flags = 0;
 
-    zend_printf("*** inside kago_fopen_precall_hook()\n");
+    //zend_printf("*** inside kago_fopen_precall_hook()\n");
 
     char *tfuncname = estrdup(KAGO_CALLED_FUNCTION);
 
@@ -236,8 +233,9 @@ PHP_FUNCTION(kago_fopen_precall_hook) {
                 zend_printf("failed to allocate memory\n");
                 return;
             }
+            realpath[0] = 0x00;
             VCWD_REALPATH(filename, realpath);
-            zend_printf("filename=[%s] realpath=[%s] mode=[%s] use_include_path=[%s]\n", filename, (realpath ? realpath : "??"), mode, (use_include_path ? "yes" : "no"));
+            log_write("function=[fopen] filename=[%s] realpath=[%s] mode=[%s] use_include_path=[%s]", filename, (realpath ? realpath : "??"), mode, (use_include_path ? "yes" : "no"));
             efree(realpath);
         }
     } else if(!strcmp("file_put_contents", tfuncname)) {
@@ -246,17 +244,18 @@ PHP_FUNCTION(kago_fopen_precall_hook) {
                 zend_printf("failed to allocate memory\n");
                 return;
             }
+            realpath[0] = 0x00;
             VCWD_REALPATH(filename, realpath);
-            zend_printf("filename=[%s] realpath=[%s] data_length=[%d] flags=[0x%08x]\n", filename, (realpath ? realpath : "??"), Z_STRLEN_P(data), flags);
+            log_write("function=[file_put_contents] filename=[%s] realpath=[%s] data_length=[%d] flags=[0x%08x]", filename, (realpath ? realpath : "??"), Z_STRLEN_P(data), flags);
             efree(realpath);
         }
     }
 
-    zend_printf("*** calling original function: %s() @@ 0x%08x\n", tfuncname, fptr);
+    //zend_printf("*** calling original function: %s() @@ 0x%08x\n", tfuncname, fptr);
 
     fptr(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 
-    zend_printf("*** leaving function %s()\n", tfuncname);
+    //zend_printf("*** leaving function %s()\n", tfuncname);
 
     efree(tfuncname);
     return;
@@ -366,6 +365,34 @@ void* kago_fovr_get(char *funcname) {
         }
     }
     return NULL;
+}
+
+// TODO: add PHP7 support (see xdebug_superglobals.c for an example)
+void kago_parse_sglobals(char *vname, char *vkey TSRMLS_DC) {
+    zval **zsg;
+    zval **zvdest;
+    zval *type;
+    HashTable *ht = NULL;
+
+    // fetch $_SERVER superglobal
+    if(zend_hash_find(&EG(symbol_table), vname, strlen(vname) - 1, (void**)&zsg) == SUCCESS) {
+        if(Z_TYPE_PP(zsg) == IS_ARRAY) {
+            ht = Z_ARRVAL_PP(zsg);
+        }
+    } else {
+        zend_printf("symbol_table hash lookup failed - failed to get value of %s[%s]\n", vname, vkey);
+        return;
+    }
+
+    if(ht) {
+        if(zend_hash_find(ht, vkey, strlen(vkey) - 1, (void**)&zvdest) == SUCCESS) {
+            zend_printf("** Got SG value for %s[%s] = %s\n", vname, vkey, Z_STRVAL_PP(zvdest));
+        } else {
+            zend_printf("hashtable lookup failed -- failed to get value of %s[%s]\n", vname, vkey);
+            return;
+        }
+    }
+
 }
 
 /**

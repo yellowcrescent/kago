@@ -16,6 +16,23 @@
 #ifndef KAGO_H
 #define KAGO_H
 
+// PHP includes //
+
+#include "php.h"
+#include "php_version.h"
+#include "SAPI.h"
+#include "php_ini.h"
+#include "ext/standard/info.h"
+
+#ifdef ZTS
+    #include "TSRM.h"
+#endif
+
+#include "zend.h"
+#include "zend_extensions.h"
+#include "zend_closures.h"
+#include "zend_hash.h"
+
 // Module infos //
 
 #define KAGO_NAME "Kago"
@@ -46,6 +63,7 @@ typedef struct _kago_overfuncs {
 
 ZEND_BEGIN_MODULE_GLOBALS(kago)
 	zend_bool enabled;
+	zend_bool restrict_php;
 	char* log_path;
 ZEND_END_MODULE_GLOBALS(kago)
 
@@ -62,6 +80,7 @@ int restore_function(char *fname, void *fptr TSRMLS_DC);
 int kago_fovr_add(char *funcname, void *fptr);
 void kago_fovr_free();
 void* kago_fovr_get(char *funcname);
+void kago_parse_sglobals(char *vname, char *vkey TSRMLS_DC);
 
 // Module framework function declarations //
 
@@ -86,6 +105,13 @@ ZEND_DLEXPORT void kago_zend_activate();
 ZEND_DLEXPORT void kago_zend_deactivate();
 ZEND_DLEXPORT void kago_fcall_begin_handler(zend_op_array *op_array);
 ZEND_DLEXPORT void kago_fcall_end_handler(zend_op_array *op_array);
+
+// Logging functions //
+
+int log_init(logfile TSRMLS_DC);
+void log_close();
+void log_write(char *fmt, ...);
+
 
 // Module entry point //
 
