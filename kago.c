@@ -135,8 +135,8 @@ PHP_RINIT_FUNCTION(kago) {
     //kago_parse_sglobals("_SERVER", "SCRIPT_NAME" TSRMLS_CC);
 
     // setup function overrides
-    replace_function("fopen", zif_kago_fopen_precall_hook);
-    replace_function("file_put_contents", zif_kago_fopen_precall_hook);
+    replace_function("fopen", zif_kago_fopen_precall_hook TSRMLS_CC);
+    replace_function("file_put_contents", zif_kago_fopen_precall_hook TSRMLS_CC);
 
     log_write("session_begin");
 }
@@ -145,7 +145,7 @@ PHP_RSHUTDOWN_FUNCTION(kago) {
 
     // revert functions and free function overrides table
     if(func_overrides) {
-        kago_fovr_free();
+        kago_fovr_free(TSRMLS_C);
     }
 
     log_write("session_end");
@@ -225,7 +225,7 @@ PHP_FUNCTION(kago_fopen_precall_hook) {
 
     char *tfuncname = estrdup(KAGO_CALLED_FUNCTION);
 
-    if((fptr = kago_fovr_get(tfuncname)) == NULL) {
+    if((fptr = kago_fovr_get(tfuncname TSRMLS_CC)) == NULL) {
         php_error_docref(NULL TSRMLS_CC, E_WARNING, "no pointer for %s() found!", tfuncname);
         efree(tfuncname);
         RETURN_FALSE;
@@ -279,7 +279,7 @@ PHP_FUNCTION(kago_zend_precall_hook) {
 
     char *tfuncname = estrdup(KAGO_CALLED_FUNCTION);
 
-    if((fptr = kago_fovr_get(tfuncname)) == NULL) {
+    if((fptr = kago_fovr_get(tfuncname TSRMLS_CC)) == NULL) {
         php_error_docref(NULL TSRMLS_CC, E_WARNING, "no pointer for %s() found!", tfuncname);
         efree(tfuncname);
         RETURN_FALSE;
@@ -339,7 +339,7 @@ int restore_function(char *fname, void *fptr TSRMLS_DC) {
     return SUCCESS;
 }
 
-int kago_fovr_add(char *funcname, void *fptr) {
+int kago_fovr_add(char *funcname, void *fptr TSRMLS_DC) {
     func_overrides_len++;
 
     if((func_overrides = erealloc(func_overrides, sizeof(kago_overfuncs*) * func_overrides_len)) == NULL) {
@@ -358,7 +358,7 @@ int kago_fovr_add(char *funcname, void *fptr) {
     return SUCCESS;
 }
 
-void kago_fovr_free() {
+void kago_fovr_free(TSRMLS_D) {
     for(int i = 0; i < func_overrides_len; i++) {
         if(func_overrides[i]->funcname) efree(func_overrides[i]->funcname);
         efree(func_overrides[i]);
@@ -366,7 +366,7 @@ void kago_fovr_free() {
     efree(func_overrides);
 }
 
-void* kago_fovr_get(char *funcname) {
+void* kago_fovr_get(char *funcname TSRMLS_DC) {
     for(int i = 0; i < func_overrides_len; i++) {
         if(!strcmp(funcname, func_overrides[i]->funcname)) {
             return func_overrides[i]->fptr;

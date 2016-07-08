@@ -77,9 +77,9 @@ ZEND_END_MODULE_GLOBALS(kago)
 
 int replace_function(char *fname, void *fptr TSRMLS_DC);
 int restore_function(char *fname, void *fptr TSRMLS_DC);
-int kago_fovr_add(char *funcname, void *fptr);
-void kago_fovr_free();
-void* kago_fovr_get(char *funcname);
+int kago_fovr_add(char *funcname, void *fptr TSRMLS_DC);
+void kago_fovr_free(TSRMLS_D);
+void* kago_fovr_get(char *funcname TSRMLS_DC);
 int kago_parse_sglobals(char *vname, char *vkey, void **dval TSRMLS_DC);
 
 // Module framework function declarations //
