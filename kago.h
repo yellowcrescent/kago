@@ -108,7 +108,7 @@ ZEND_DLEXPORT void kago_fcall_end_handler(zend_op_array *op_array);
 
 // Logging functions //
 
-int log_init(logfile TSRMLS_DC);
+int log_init(char *logfile TSRMLS_DC);
 void log_close();
 void log_write(char *fmt, ...);
 

@@ -21,7 +21,7 @@
 FILE *kloghand = NULL;
 int klogvalid = 0;
 
-int log_init(logfile TSRMLS_DC) {
+int log_init(char *logfile TSRMLS_DC) {
 	FILE* lhand;
 
 	if(logfile) {
