@@ -317,7 +317,7 @@ int replace_function(char *fname, void *fptr TSRMLS_DC) {
     }
 
     // point handler to new function, return orig_func, and add old handler to overrides table
-    kago_fovr_add(fname, orig_func->handler);
+    kago_fovr_add(fname, orig_func->handler TSRMLS_CC);
     orig_func->handler = fptr;
 
     return SUCCESS;
