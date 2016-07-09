@@ -19,9 +19,6 @@
 
 #include "kago.h"
 
-int func_overrides_len = 0;
-kago_overfuncs **func_overrides = NULL;
-
 int kago_zend_init = 0;
 int kago_active = 0;
 
@@ -74,6 +71,8 @@ static void php_kago_init_globals(zend_kago_globals* kg TSRMLS_DC) {
     kg->enabled = 1;
     kg->restrict_php = 1;
     kg->log_path = estrdup("/var/log/kago.log");
+    kg->func_overrides_len = 0;
+    kg->func_overrides = NULL;
 }
 
 /**
@@ -144,7 +143,7 @@ PHP_RINIT_FUNCTION(kago) {
 PHP_RSHUTDOWN_FUNCTION(kago) {
 
     // revert functions and free function overrides table
-    if(func_overrides) {
+    if(KAGO_G(func_overrides)) {
         kago_fovr_free(TSRMLS_C);
     }
 
@@ -340,43 +339,43 @@ int restore_function(char *fname, void *fptr TSRMLS_DC) {
 }
 
 int kago_fovr_add(char *funcname, void *fptr TSRMLS_DC) {
-    func_overrides_len++;
+    KAGO_G(func_overrides_len)++;
 
-    if(func_overrides == NULL) {
-        if((func_overrides = emalloc(sizeof(kago_overfuncs*) * func_overrides_len)) == NULL) {
+    if(KAGO_G(func_overrides) == NULL) {
+        if((KAGO_G(func_overrides) = emalloc(sizeof(kago_overfuncs*) * KAGO_G(func_overrides_len))) == NULL) {
             php_error_docref(NULL TSRMLS_CC, E_ERROR, "failed to reallocate memory");
             return FAILURE;
         }
     } else {
-        if((func_overrides = erealloc(func_overrides, sizeof(kago_overfuncs*) * func_overrides_len)) == NULL) {
+        if((KAGO_G(func_overrides) = erealloc(KAGO_G(func_overrides), sizeof(kago_overfuncs*) * KAGO_G(func_overrides_len))) == NULL) {
             php_error_docref(NULL TSRMLS_CC, E_ERROR, "erealloc() failed to reallocate memory");
             return FAILURE;
         }
     }
 
-    if((func_overrides[func_overrides_len - 1] = emalloc(sizeof(kago_overfuncs))) == NULL) {
+    if((KAGO_G(func_overrides)[KAGO_G(func_overrides_len) - 1] = emalloc(sizeof(kago_overfuncs))) == NULL) {
         php_error_docref(NULL TSRMLS_CC, E_ERROR, "malloc() failed to allocate memory for new entry");
         return FAILURE;
     }
 
-    func_overrides[func_overrides_len - 1]->funcname = estrdup(funcname);
-    func_overrides[func_overrides_len - 1]->fptr = fptr;
+    KAGO_G(func_overrides)[KAGO_G(func_overrides_len) - 1]->funcname = estrdup(funcname);
+    KAGO_G(func_overrides)[KAGO_G(func_overrides_len) - 1]->fptr = fptr;
 
     return SUCCESS;
 }
 
 void kago_fovr_free(TSRMLS_D) {
-    for(int i = 0; i < func_overrides_len; i++) {
-        if(func_overrides[i]->funcname) efree(func_overrides[i]->funcname);
-        efree(func_overrides[i]);
+    for(int i = 0; i < KAGO_G(func_overrides_len); i++) {
+        if(KAGO_G(func_overrides)[i]->funcname) efree(KAGO_G(func_overrides)[i]->funcname);
+        efree(KAGO_G(func_overrides)[i]);
     }
-    efree(func_overrides);
+    efree(KAGO_G(func_overrides));
 }
 
 void* kago_fovr_get(char *funcname TSRMLS_DC) {
-    for(int i = 0; i < func_overrides_len; i++) {
-        if(!strcmp(funcname, func_overrides[i]->funcname)) {
-            return func_overrides[i]->fptr;
+    for(int i = 0; i < KAGO_G(func_overrides_len); i++) {
+        if(!strcmp(funcname, KAGO_G(func_overrides)[i]->funcname)) {
+            return KAGO_G(func_overrides)[i]->fptr;
         }
     }
     return NULL;

@@ -65,6 +65,8 @@ ZEND_BEGIN_MODULE_GLOBALS(kago)
 	zend_bool enabled;
 	zend_bool restrict_php;
 	char* log_path;
+	int func_overrides_len;
+	kago_overfuncs **func_overrides;
 ZEND_END_MODULE_GLOBALS(kago)
 
 #ifdef ZTS
