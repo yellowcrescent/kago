@@ -342,9 +342,16 @@ int restore_function(char *fname, void *fptr TSRMLS_DC) {
 int kago_fovr_add(char *funcname, void *fptr TSRMLS_DC) {
     func_overrides_len++;
 
-    if((func_overrides = erealloc(func_overrides, sizeof(kago_overfuncs*) * func_overrides_len)) == NULL) {
-        php_error_docref(NULL TSRMLS_CC, E_ERROR, "erealloc() failed to reallocate memory");
-        return FAILURE;
+    if(func_overrides == NULL) {
+        if((func_overrides = emalloc(sizeof(kago_overfuncs*) * func_overrides_len)) == NULL) {
+            php_error_docref(NULL TSRMLS_CC, E_ERROR, "failed to reallocate memory");
+            return FAILURE;
+        }
+    } else {
+        if((func_overrides = erealloc(func_overrides, sizeof(kago_overfuncs*) * func_overrides_len)) == NULL) {
+            php_error_docref(NULL TSRMLS_CC, E_ERROR, "erealloc() failed to reallocate memory");
+            return FAILURE;
+        }
     }
 
     if((func_overrides[func_overrides_len - 1] = emalloc(sizeof(kago_overfuncs))) == NULL) {
