@@ -72,7 +72,6 @@ static void php_kago_init_globals(zend_kago_globals* kg TSRMLS_DC) {
     kg->restrict_php = 1;
     kg->log_path = estrdup("/var/log/kago.log");
     kg->func_overrides_len = 0;
-    kg->func_overrides = NULL;
 }
 
 /**
@@ -341,6 +340,7 @@ int restore_function(char *fname, void *fptr TSRMLS_DC) {
 int kago_fovr_add(char *funcname, void *fptr TSRMLS_DC) {
     KAGO_G(func_overrides_len)++;
 
+    /*
     if(KAGO_G(func_overrides) == NULL) {
         if((KAGO_G(func_overrides) = emalloc(sizeof(kago_overfuncs*) * KAGO_G(func_overrides_len))) == NULL) {
             php_error_docref(NULL TSRMLS_CC, E_ERROR, "failed to reallocate memory");
@@ -352,6 +352,7 @@ int kago_fovr_add(char *funcname, void *fptr TSRMLS_DC) {
             return FAILURE;
         }
     }
+    */
 
     if((KAGO_G(func_overrides)[KAGO_G(func_overrides_len) - 1] = emalloc(sizeof(kago_overfuncs))) == NULL) {
         php_error_docref(NULL TSRMLS_CC, E_ERROR, "malloc() failed to allocate memory for new entry");
@@ -369,7 +370,7 @@ void kago_fovr_free(TSRMLS_D) {
         if(KAGO_G(func_overrides)[i]->funcname) efree(KAGO_G(func_overrides)[i]->funcname);
         efree(KAGO_G(func_overrides)[i]);
     }
-    efree(KAGO_G(func_overrides));
+    //efree(KAGO_G(func_overrides));
 }
 
 void* kago_fovr_get(char *funcname TSRMLS_DC) {

@@ -44,7 +44,8 @@
 
 // Macros & Defines //
 
-#define KAGO_MAXPATH	2048
+#define KAGO_MAXPATH		2048
+#define KAGO_FUNCOVR_MAX	32
 
 #if PHP_VERSION_ID >= 70000
 	#define KAGO_CALLED_FUNCTION execute_data->func->common.function_name->val
@@ -66,7 +67,7 @@ ZEND_BEGIN_MODULE_GLOBALS(kago)
 	zend_bool restrict_php;
 	char* log_path;
 	int func_overrides_len;
-	kago_overfuncs **func_overrides;
+	kago_overfuncs *func_overrides[KAGO_FUNCOVR_MAX];
 ZEND_END_MODULE_GLOBALS(kago)
 
 #ifdef ZTS
