@@ -55,6 +55,11 @@
 
 // Typedefs & Structs //
 
+typedef struct _kago_overfuncs2 {
+	char funcname[64];
+	void *fptr;
+} kago_overfuncs2;
+
 typedef struct _kago_overfuncs {
 	char *funcname;
 	void *fptr;
@@ -67,7 +72,7 @@ ZEND_BEGIN_MODULE_GLOBALS(kago)
 	zend_bool restrict_php;
 	char* log_path;
 	int func_overrides_len;
-	kago_overfuncs *func_overrides[KAGO_FUNCOVR_MAX];
+	kago_overfuncs2 func_overrides[KAGO_FUNCOVR_MAX];
 ZEND_END_MODULE_GLOBALS(kago)
 
 #ifdef ZTS

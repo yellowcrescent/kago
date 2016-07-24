@@ -354,29 +354,31 @@ int kago_fovr_add(char *funcname, void *fptr TSRMLS_DC) {
     }
     */
 
+    /*
     if((KAGO_G(func_overrides)[KAGO_G(func_overrides_len) - 1] = emalloc(sizeof(kago_overfuncs))) == NULL) {
         php_error_docref(NULL TSRMLS_CC, E_ERROR, "malloc() failed to allocate memory for new entry");
         return FAILURE;
     }
+    */
 
-    KAGO_G(func_overrides)[KAGO_G(func_overrides_len) - 1]->funcname = estrdup(funcname);
-    KAGO_G(func_overrides)[KAGO_G(func_overrides_len) - 1]->fptr = fptr;
+    strcpy(KAGO_G(func_overrides)[KAGO_G(func_overrides_len) - 1].funcname, funcname);
+    KAGO_G(func_overrides)[KAGO_G(func_overrides_len) - 1].fptr = fptr;
 
     return SUCCESS;
 }
 
 void kago_fovr_free(TSRMLS_D) {
     for(int i = 0; i < KAGO_G(func_overrides_len); i++) {
-        if(KAGO_G(func_overrides)[i]->funcname) efree(KAGO_G(func_overrides)[i]->funcname);
-        efree(KAGO_G(func_overrides)[i]);
+        //if(KAGO_G(func_overrides)[i]->funcname) efree(KAGO_G(func_overrides)[i]->funcname);
+        //efree(KAGO_G(func_overrides)[i]);
     }
     //efree(KAGO_G(func_overrides));
 }
 
 void* kago_fovr_get(char *funcname TSRMLS_DC) {
     for(int i = 0; i < KAGO_G(func_overrides_len); i++) {
-        if(!strcmp(funcname, KAGO_G(func_overrides)[i]->funcname)) {
-            return KAGO_G(func_overrides)[i]->fptr;
+        if(!strcmp(funcname, KAGO_G(func_overrides)[i].funcname)) {
+            return KAGO_G(func_overrides)[i].fptr;
         }
     }
     return NULL;
