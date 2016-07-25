@@ -1,0 +1,15 @@
+#
+# vim: set ts=2 sw=2 expandtab syntax=yaml:
+#
+
+wordpress:
+  deny:
+    - function: fopen
+      mode: /w/
+      filename: /\.(php|so|exe|sh)$/
+
+    - function: file_put_contents
+      filename: /\.(php|so|exe|sh)$/
+
+  allow:
+    - realpath: /wp-admin\/update\.php$/

@@ -67,9 +67,9 @@ void log_write(char *fmt, ...) {
 
 	if(klogvalid) {
 		fprintf(kloghand, "[%s] %s\n", tstamp, fmtbuf);
-		#ifdef DEBUG
+		//#ifdef DEBUG
 		fflush(kloghand);
-		#endif
+		//#endif
 	}
 
 }

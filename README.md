@@ -4,6 +4,12 @@ Kago
 
 # Installation
 
+## PECL
+
+	pecl install channel://pecl.ycnrg.org/Kago
+
+## From Source
+
 	git clone https://git.ycnrg.org/scm/ykg/kago.git
 	cd kago
 	phpize
@@ -11,5 +17,5 @@ Kago
 	make
 	sudo make install
 
-Then add `zend_extension=kago.so` to your `php.ini` file, a file included in `conf.d` (if enabled for your PHP build).
-
+With either installation methods, you'll need to add `zend_extension=kago.so` to your `php.ini` file,
+or create an additional file in `conf.d` (if enabled for your PHP build).

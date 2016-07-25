@@ -1,50 +1,59 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<package version="2.1" xmlns="http://pear.php.net/dtd/package-2.1" xmlns:tasks="http://pear.php.net/dtd/tasks-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://pear.php.net/dtd/tasks-1.0     http://pear.php.net/dtd/tasks-1.0.xsd     http://pear.php.net/dtd/package-2.1     http://pear.php.net/dtd/package-2.1.xsd">
+<package
+  version="2.1" xmlns="http://pear.php.net/dtd/package-2.1"
+  xmlns:tasks="http://pear.php.net/dtd/tasks-1.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://pear.php.net/dtd/tasks-1.0 http://pear.php.net/dtd/tasks-1.0.xsd http://pear.php.net/dtd/package-2.1 http://pear.php.net/dtd/package-2.1.xsd">
  <name>kago</name>
- <channel>pecl.php.net</channel>
- <summary>Extension package kago summary
-</summary>
+ <channel>pecl.ycnrg.org</channel>
+ <summary>
+  Audit logging and rule-based security extension
+ </summary>
  <description>
-Detailed description (edit README to change this)</description>
+  Performs audit logging by hooking functions that modify or create files, perform mySQL queries,
+  or send email. ACLs can be created for function calls via a ruleset, defined using YAML.
+ </description>
  <lead>
   <name>Jacob Hipps</name>
-  <user>crescent</user>
+  <user>yellowcrescent</user>
   <email>jacob@ycnrg.org</email>
   <active>yes</active>
  </lead>
- <date>2016-06-15</date>
+ <date>2016-07-25</date>
  <time>22:00:00</time>
  <version>
-  <release>0.1.0</release>
-  <api>0.1.0</api>
+  <release>0.1.4</release>
+  <api>0.1.4</api>
  </version>
  <stability>
   <release>alpha</release>
   <api>alpha</api>
  </stability>
  <license uri="https://opensource.org/licenses/MIT">MIT</license>
- <notes>Package kago release notes for version 0.1.0.</notes>
+ <notes>Kago - WIP alpha release</notes>
  <contents>
   <dir name="/">
-   <dir name="tests">
-    <file role="test" name="001.phpt"/>
-   </dir>
+   <file role="doc" name="README.md"/>
+   <file role="doc" name="LICENSE"/>
+   <file role="doc" name="CREDITS"/>
    <file role="src" name="config.m4"/>
    <file role="src" name="config.w32"/>
    <file role="src" name="kago.c"/>
+   <file role="src" name="logger.c"/>
+   <file role="src" name="ruleparser.c"/>
    <file role="src" name="kago.h"/>
   </dir>
  </contents>
  <dependencies>
   <required>
    <php>
-    <min>5.3.0</min>
+    <min>5.4.0</min>
    </php>
    <pearinstaller>
-    <min>1.4.8</min>
+    <min>1.9.1</min>
    </pearinstaller>
   </required>
  </dependencies>
  <providesextension>kago</providesextension>
- <extsrcrelease/>
+ <zendextsrcrelease/>
 </package>

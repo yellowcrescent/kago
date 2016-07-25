@@ -377,9 +377,9 @@ void kago_fovr_free(TSRMLS_D) {
 
 void* kago_fovr_get(char *funcname TSRMLS_DC) {
     for(int i = 0; i < KAGO_G(func_overrides_len); i++) {
-        log_write("kago_fovr_get(): strcmp(funcname @@ 0x%08x, KAGO_G(func_overrides)[%d].funcname @@ 0x%08x)", funcname, i, KAGO_G(func_overrides)[i].funcname);
-        log_write("kago_fovr_get(): funcname @@ 0x%08x = '%s'", funcname, funcname);
-        log_write("kago_fovr_get(): KAGO_G(func_overrides)[%d].funcname @@ 0x%08x = '%s'", i, KAGO_G(func_overrides)[i].funcname, KAGO_G(func_overrides)[i].funcname);
+        //log_write("kago_fovr_get(): strcmp(funcname @@ 0x%08x, KAGO_G(func_overrides)[%d].funcname @@ 0x%08x)", funcname, i, KAGO_G(func_overrides)[i].funcname);
+        //log_write("kago_fovr_get(): funcname @@ 0x%08x = '%s'", funcname, funcname);
+        //log_write("kago_fovr_get(): KAGO_G(func_overrides)[%d].funcname @@ 0x%08x = '%s'", i, KAGO_G(func_overrides)[i].funcname, KAGO_G(func_overrides)[i].funcname);
         if(!strcmp(funcname, KAGO_G(func_overrides)[i].funcname)) {
             return KAGO_G(func_overrides)[i].fptr;
         }

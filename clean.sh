@@ -12,5 +12,6 @@ EOF
 phpize --clean
 [ -f Makefile ] && make clean 2>/dev/null
 rm -Rfv $ACFILES 2>/dev/null
+rm -Rfv tests/*.{diff,exp,log,out,php,sh}
 
 echo "** Clean complete"
