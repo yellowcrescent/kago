@@ -11,7 +11,7 @@ kago.log_path=./kago.test.log
 <?php
 	$tstr = "0123456789abcdef";
 
-	$tf = "testfile-kago_fopen_precall_hook"
+	$tf = "testfile-kago_fopen_precall_hook";
 	$f = fopen($tf,"wb");
 	fwrite($f, $tstr);
 	fclose($f);
