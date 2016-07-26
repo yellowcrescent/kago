@@ -11,7 +11,7 @@ kago.log_path=./kago.test.log
 <?php
 	$tstr = "0123456789abcdef";
 
-	$tf = tempnam("./", "テスト");
+	$tf = "testfile-kago_fopen_precall_hook-unicode-テスト";
 	$f = fopen($tf,"wb");
 	fwrite($f, $tstr);
 	fclose($f);
@@ -23,5 +23,5 @@ kago.log_path=./kago.test.log
 
 	unlink($tf);
 ?>
---EXPECT--
+--EXPECTF--
 string(16) "0123456789abcdef"

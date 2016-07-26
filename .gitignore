@@ -26,3 +26,4 @@ run-tests.php
 *.lo
 *.la
 *.log
+results.*
